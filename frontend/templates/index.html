@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroConnect – Data-Driven Precision Agriculture</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</head>
+<body>
+
+    <header>
+        <div class="header-inner">
+            <div class="logo">Agro<span>Connect</span></div>
+            <button class="nav-toggle" id="nav-toggle">&#9776;</button>
+            <nav id="nav-menu">
+                <ul>
+                    <li><a href="{{ url_for('index') }}" class="active">Home</a></li>
+                    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="dropdown">
+                        <a href="javascript:void(0)" class="dropbtn" style="cursor: pointer;">Services ▾</a>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('soil_health') }}">Soil Health</a>
+                            <a href="{{ url_for('crop_rec') }}">Crop Recommendation</a>
+                            <a href="{{ url_for('yield_prediction') }}">Yield Prediction</a>
+                            <a href="{{ url_for('irrigation') }}">Irrigation</a>
+                            <a href="{{ url_for('farm_reports') }}">Reports</a>
+                            <a href="{{ url_for('weather') }}">Weather</a>
+                            <a href="{{ url_for('analytics') }}">Analytics</a>
+                        </div>
+                    </li>
+                                        {% if current_user.is_authenticated %}
+                    <li style="margin-left: auto;"><a href="{{ url_for('logout') }}" class="nav-login-btn">Logout</a></li>
+                    {% else %}
+                    <li style="margin-left: auto;"><a href="{{ url_for('login_page') }}" class="nav-login-btn">Login</a></li>
+                    <li><a href="{{ url_for('register_page') }}" class="nav-register-btn">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <main>
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1>Welcome to AgroConnect</h1>
+                <p>Your Digital Farming Assistant<br>Monitor soil health, predict crop yield, optimize irrigation, and make smarter farming decisions—all in one place.</p>
+                <div>
+                    <a href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('register_page') }}" class="btn">Get Started</a>
+                </div>
+            </div>
+            <div class="slider-container">
+                <img src="{{ url_for('static', filename='img/farmland.png') }}" alt="Farmland drone view" class="slider-image active">
+                <img src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=800&auto=format&fit=crop" alt="Smart Farming Technology" class="slider-image">
+                <img src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=800&auto=format&fit=crop" alt="Lush Crop Fields" class="slider-image">
+                <img src="https://images.unsplash.com/photo-1586771107445-d3ca888129ff?q=80&w=800&auto=format&fit=crop" alt="Farmers working in soil" class="slider-image">
+            </div>
+        </section>
+
+        <section class="section-padding">
+            <div class="section-header">
+                <h2>System Capabilities</h2>
+                <p>AgroConnect equips modern farmers with scientific decision tools to run highly efficient, high-yield agricultural operations.</p>
+            </div>
+            <div class="features-grid">
+                <a href="{{ url_for('soil_health') }}" class="feature-card" style="text-decoration: none; color: inherit;">
+                    <div class="feature-icon">🌱</div>
+                    <h3>Soil Health</h3>
+                    <p>Analyze key physical parameters including soil type and nutrient profiles to assess growing conditions.</p>
+                </a>
+                <a href="{{ url_for('crop_rec') }}" class="feature-card" style="text-decoration: none; color: inherit;">
+                    <div class="feature-icon">🌾</div>
+                    <h3>Crop Rec</h3>
+                    <p>Receive AI-driven crop recommendations based on your specific soil and climate data.</p>
+                </a>
+                <a href="{{ url_for('yield_prediction') }}" class="feature-card" style="text-decoration: none; color: inherit;">
+                    <div class="feature-icon">📈</div>
+                    <h3>Yield Prediction</h3>
+                    <p>Estimate crop yield potentials using regional data metrics and input parameters.</p>
+                </a>
+                <a href="{{ url_for('irrigation') }}" class="feature-card" style="text-decoration: none; color: inherit;">
+                    <div class="feature-icon">💧</div>
+                    <h3>Irrigation</h3>
+                    <p>Adapt cropping patterns based on water sources to avoid water-stress or water-logging risks.</p>
+                </a>
+                <a href="{{ url_for('farm_reports') }}" class="feature-card" style="text-decoration: none; color: inherit;">
+                    <div class="feature-icon">📊</div>
+                    <h3>Farm Reports</h3>
+                    <p>Export field performance reports to share with regional agronomy extensions.</p>
+                </a>
+                <a href="{{ url_for('weather') }}" class="feature-card" style="text-decoration: none; color: inherit;">
+                    <div class="feature-icon">☀️</div>
+                    <h3>Weather Analytics</h3>
+                    <p>Monitor local weather patterns to optimize planting and harvesting schedules.</p>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-inner">
+            <p>&copy; <span id="copyright-year"></span> AgroConnect. Data-Driven Precision Agriculture &amp; Yield Analytics.</p>
+        </div>
+    </footer>
+
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/services.js') }}"></script>
+</body>
+</html>

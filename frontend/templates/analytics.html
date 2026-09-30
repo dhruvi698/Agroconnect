@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroConnect - Analytics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        .analytics-hero {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        .analytics-hero h2 {
+            font-size: 2.5rem;
+            color: var(--color-primary-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .analytics-hero h2 {
+            font-size: 2.5rem;
+            color: var(--color-primary-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .a-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid var(--color-border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .a-card.active-card {
+            background-color: #e8f5e9;
+            border: 2px solid var(--color-primary-dark);
+        }
+        
+        .a-card h3 {
+            color: var(--color-primary-dark);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+        
+        .a-card p {
+            color: #555;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin-bottom: 2rem;
+        }
+        
+        .coming-soon-btn {
+            display: inline-block;
+            text-align: center;
+            border: 2px dashed #bbb;
+            color: #777;
+            padding: 0.6rem 1rem;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            background: rgba(255,255,255,0.5);
+            width: 100%;
+        }
+        
+        .active-card .coming-soon-btn {
+            border-color: #72a574;
+            color: #4a754b;
+        }
+        
+        .active-card .coming-soon-btn {
+            border-color: #72a574;
+            color: #4a754b;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">Agro<span>Connect</span></div>
+            <button class="nav-toggle" id="nav-toggle">&#9776;</button>
+            <nav id="nav-menu">
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    <li><a href="{{ url_for('dashboard') }}" class="active">Dashboard</a></li>
+                    <li class="dropdown">
+                        <a href="javascript:void(0)" class="dropbtn" style="cursor: pointer;">Services ▾</a>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('soil_health') }}">Soil Health</a>
+                            <a href="{{ url_for('crop_rec') }}">Crop Recommendation</a>
+                            <a href="{{ url_for('yield_prediction') }}">Yield Prediction</a>
+                            <a href="{{ url_for('irrigation') }}">Irrigation</a>
+                            <a href="{{ url_for('farm_reports') }}">Reports</a>
+                            <a href="{{ url_for('weather') }}">Weather</a>
+                            <a href="{{ url_for('analytics') }}">Analytics</a>
+                        </div>
+                    </li>
+                                        {% if current_user.is_authenticated %}
+                    <li style="margin-left: auto;"><a href="{{ url_for('logout') }}" class="nav-login-btn">Logout</a></li>
+                    {% else %}
+                    <li style="margin-left: auto;"><a href="{{ url_for('login_page') }}" class="nav-login-btn">Login</a></li>
+                    <li><a href="{{ url_for('register_page') }}" class="nav-register-btn">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="section-padding">
+        <div class="analytics-hero">
+            <h2>Yield & Soil Analytics</h2>
+            <div class="filter-container" style="max-width: 600px; margin: 1.5rem auto 0; background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid var(--color-border); text-align: left;">
+                <label for="farm-size-slider" style="display: block; font-weight: 600; color: var(--color-primary-dark); margin-bottom: 0.5rem;">
+                    Filter by Farm Size (Acres): <span id="farm-size-display">All</span>
+                </label>
+                <input type="range" id="farm-size-slider" min="0" max="100" step="5" value="100" style="width: 100%; cursor: pointer;">
+                <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem; margin-bottom: 0;">Showing data for farms up to <span id="farm-size-limit">Any</span> acres.</p>
+            </div>
+        </div>
+
+        <div class="analytics-grid-new">
+            <div>
+                <div class="a-card active-card">
+                    <div>
+                        <h3>Yield Trend<br>(Historical)</h3>
+                        <p>Seasonal crop harvest output measured in metric tonnes per hectare.</p>
+                    </div>
+                    <div id="yield-chart" style="width: 100%; height: 250px;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="a-card">
+                    <div>
+                        <h3>Soil Type<br>Distribution</h3>
+                        <p>Distribution of soil types (Black, Alluvial, Red, Sandy) recorded across all registered acreage.</p>
+                    </div>
+                    <div id="soil-chart" style="width: 100%; height: 250px;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="a-card">
+                    <div>
+                        <h3>Water Source<br>Utilization</h3>
+                        <p>Utilization patterns of available irrigation and water sources including canal, tube well, and rainfall.</p>
+                    </div>
+                    <div id="water-chart" style="width: 100%; height: 250px;"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="a-card">
+                    <div>
+                        <h3>Economic ROI<br>Analyzer</h3>
+                        <p>Financial returns and profit margins calculated per crop cycle.</p>
+                    </div>
+                    <div id="roi-chart" style="width: 100%; height: 250px;"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer style="background-color: #5d4037; color: #fff; padding: 2rem; text-align: center;">
+        <p>&copy; 2026 AgroConnect. Data-Driven Precision Agriculture & Yield Analytics.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const slider = document.getElementById('farm-size-slider');
+            const display = document.getElementById('farm-size-display');
+            const limitDisplay = document.getElementById('farm-size-limit');
+            
+            let rawData = { soil_data: [], water_data: [], roi_data: [], yield_trend_data: [] };
+            
+            // Fetch data
+            fetch('/api/analytics/summary')
+                .then(response => response.json())
+                .then(data => {
+                    if(data.success) {
+                        rawData = data;
+                        renderCharts(slider.value);
+                    }
+                })
+                .catch(error => console.error('Error fetching analytics:', error));
+                
+            // Slider listener
+            slider.addEventListener('input', function() {
+                const val = this.value;
+                display.textContent = val == 100 ? 'All' : 'Up to ' + val;
+                limitDisplay.textContent = val == 100 ? 'Any' : val;
+                renderCharts(val);
+            });
+            
+            function renderCharts(maxSize) {
+                maxSize = parseInt(maxSize);
+                const isAll = maxSize >= 100;
+                
+                // Filter data
+                const soilFiltered = rawData.soil_data.filter(d => isAll || d.farm_size <= maxSize);
+                const waterFiltered = rawData.water_data.filter(d => isAll || d.farm_size <= maxSize);
+                const roiFiltered = rawData.roi_data.filter(d => isAll || d.farm_size <= maxSize);
+                const yieldFiltered = rawData.yield_trend_data.filter(d => isAll || d.farm_size <= maxSize);
+                
+                // Colors based on style.css (improved contrast)
+                const colors = ['#004d40', '#2e7d32', '#66bb6a', '#aed581', '#e8f5e9'];
+                
+                const layoutBase = {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    font: { family: 'Inter, sans-serif' }
+                };
+                
+                // Helper to render or clear
+                function buildOrClearChart(containerId, filtered, buildTrace, extraLayout, config) {
+                    const container = document.getElementById(containerId);
+                    try { Plotly.purge(containerId); } catch(e) {}
+                    
+                    if (filtered.length > 0) {
+                        container.innerHTML = '';
+                        const trace = buildTrace(filtered);
+                        Plotly.newPlot(containerId, [trace], {...layoutBase, ...extraLayout}, config);
+                    } else {
+                        container.innerHTML = '<div style="text-align:center; padding: 2rem; color: #777;">No data available yet</div>';
+                    }
+                }
+                
+                // 1. Soil Chart
+                buildOrClearChart('soil-chart', soilFiltered, (data) => {
+                    const counts = {};
+                    data.forEach(d => {
+                        const s = d.soil.charAt(0).toUpperCase() + d.soil.slice(1);
+                        counts[s] = (counts[s] || 0) + 1;
+                    });
+                    return {
+                        values: Object.values(counts),
+                        labels: Object.keys(counts),
+                        type: 'pie',
+                        hole: 0.4,
+                        marker: { colors: colors },
+                        textinfo: 'percent',
+                        hoverinfo: 'label+value+percent'
+                    };
+                }, { margin: { t: 10, b: 10 }, showlegend: true }, { displayModeBar: false });
+                
+                // 2. Water Chart
+                buildOrClearChart('water-chart', waterFiltered, (data) => {
+                    const counts = {};
+                    data.forEach(d => {
+                        const w = d.water.charAt(0).toUpperCase() + d.water.slice(1);
+                        counts[w] = (counts[w] || 0) + 1;
+                    });
+                    return {
+                        values: Object.values(counts),
+                        labels: Object.keys(counts),
+                        type: 'pie',
+                        hole: 0.4,
+                        marker: { colors: colors },
+                        textinfo: 'percent',
+                        hoverinfo: 'label+value+percent',
+                        textposition: 'outside',
+                        automargin: true
+                    };
+                }, { margin: { t: 10, b: 10 }, showlegend: true }, { displayModeBar: false });
+                
+                // 3. ROI Chart
+                buildOrClearChart('roi-chart', roiFiltered, (data) => {
+                    const cropProfit = {};
+                    const cropCounts = {};
+                    data.forEach(d => {
+                        const c = d.crop.charAt(0).toUpperCase() + d.crop.slice(1);
+                        cropProfit[c] = (cropProfit[c] || 0) + d.profit;
+                        cropCounts[c] = (cropCounts[c] || 0) + 1;
+                    });
+                    
+                    const avgProfit = {};
+                    Object.keys(cropProfit).forEach(c => {
+                        avgProfit[c] = cropProfit[c] / cropCounts[c];
+                    });
+                    
+                    return {
+                        x: Object.keys(avgProfit),
+                        y: Object.values(avgProfit),
+                        type: 'bar',
+                        marker: { color: '#4caf50' },
+                        hovertemplate: 'Crop: %{x}<br>Avg Profit: ₹%{y:,.2f}<extra></extra>'
+                    };
+                }, {
+                    margin: { t: 10, b: 40, l: 50, r: 10 },
+                    xaxis: { title: 'Crop' },
+                    yaxis: { title: 'Avg Profit' },
+                    dragmode: 'zoom'
+                }, { scrollZoom: true, displayModeBar: true, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
+                
+                // 4. Yield Trend Chart
+                buildOrClearChart('yield-chart', yieldFiltered, (data) => {
+                    return {
+                        x: data.map(d => d.date),
+                        y: data.map(d => d.total_yield),
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#2e7d32', width: 3 },
+                        marker: { size: 6, color: '#1b5e20' },
+                        hovertemplate: 'Date: %{x}<br>Yield: %{y:,.2f}<extra></extra>'
+                    };
+                }, {
+                    margin: { t: 10, b: 40, l: 50, r: 10 },
+                    xaxis: { title: 'Date', rangeslider: { visible: true }, type: 'date' },
+                    yaxis: { title: 'Total Yield' },
+                    dragmode: 'zoom'
+                }, { scrollZoom: true, displayModeBar: true, modeBarButtonsToRemove: ['lasso2d', 'select2d'] });
+            }
+        });
+    </script>
+</body>
+</html>

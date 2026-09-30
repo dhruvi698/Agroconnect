@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Irrigation Planner - AgroConnect</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="logo">Agro<span>Connect</span></div>
+            <button class="nav-toggle" id="nav-toggle">&#9776;</button>
+            <nav id="nav-menu">
+                <ul>
+                    <li><a href="{{ url_for('index') }}">Home</a></li>
+                    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="dropdown">
+                        <a href="javascript:void(0)" class="active dropbtn" style="cursor: pointer;">Services ▾</a>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('soil_health') }}">Soil Health</a>
+                            <a href="{{ url_for('crop_rec') }}">Crop Recommendation</a>
+                            <a href="{{ url_for('yield_prediction') }}">Yield Prediction</a>
+                            <a href="{{ url_for('irrigation') }}" style="color: var(--color-primary-dark) !important; background-color: rgba(76, 175, 80, 0.08);">Irrigation</a>
+                            <a href="{{ url_for('farm_reports') }}">Reports</a>
+                            <a href="{{ url_for('weather') }}">Weather</a>
+                            <a href="{{ url_for('analytics') }}">Analytics</a>
+                        </div>
+                    </li>
+                                        {% if current_user.is_authenticated %}
+                    <li style="margin-left: auto;"><a href="{{ url_for('logout') }}" class="nav-login-btn">Logout</a></li>
+                    {% else %}
+                    <li style="margin-left: auto;"><a href="{{ url_for('login_page') }}" class="nav-login-btn">Login</a></li>
+                    <li><a href="{{ url_for('register_page') }}" class="nav-register-btn">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="section-padding">
+        <div class="module-hero">
+            <h2>💧 Irrigation Planner</h2>
+            <p>Smart water management scheduling to optimize water usage and prevent crop stress.</p>
+        </div>
+
+        <div class="module-container">
+            <div>
+                <div class="input-card">
+                <h3><span class="icon">🚿</span> Field Parameters</h3>
+                <form id="irrigation-form">
+                    <div class="form-group">
+                        <label for="i-size">Farm Size (Acres)</label>
+                        <input type="number" id="i-size" placeholder="e.g. 50">
+                    </div>
+                    <div class="form-group">
+                        <label for="i-source">Water Source</label>
+                        <select id="i-source">
+                            <option>Canal</option>
+                            <option>Borewell</option>
+                            <option>Rain-fed</option>
+                            <option>Drip System</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="i-soil">Soil Type</label>
+                        <select id="i-soil">
+                            <option>Sandy (High Drainage)</option>
+                            <option>Loamy (Balanced)</option>
+                            <option>Clay (High Retention)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%;">Generate Irrigation Plan</button>
+                </form>
+            </div>
+            </div>
+
+            <div>
+                <div class="output-card">
+                <h3><span class="icon">📅</span> Irrigation Schedule</h3>
+                <div class="output-placeholder" id="irrigation-placeholder">
+                    <div class="icon">⏳</div>
+                    <p id="irrigation-empty-text">Generate your first irrigation plan.</p>
+                </div>
+                <div class="result-content" id="irrigation-result">
+                    <div class="result-item">
+                        <h4>Daily Water Requirement</h4>
+                        <p id="res-water" style="color: var(--color-text-muted); font-size: 0.9rem;">No Data Available Yet.</p>
+                    </div>
+                    <div class="result-item">
+                        <h4>Irrigation Frequency</h4>
+                        <p id="res-freq" style="color: var(--color-text-muted); font-size: 0.9rem;">No Data Available Yet.</p>
+                    </div>
+                    <div class="result-item">
+                        <h4>Water Saving Tips</h4>
+                        <p id="res-tips">Utilize mulching to reduce evaporation.</p>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+
+
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <a href="{{ url_for('index') }}" class="btn" style="background-color: transparent; color: var(--color-primary-dark); border: 2px solid var(--color-primary-dark);">← Back to Home</a>
+        </div>
+    </main>
+
+    <footer>
+                <div class="footer-inner">
+            <p>&copy; <span id="copyright-year"></span> AgroConnect. Data-Driven Precision Agriculture &amp; Yield Analytics.</p>
+        </div>
+    </footer>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.getElementById('irrigation-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            document.getElementById('irrigation-placeholder').style.display = 'none';
+            document.getElementById('irrigation-result').style.display = 'block';
+            
+            const size = parseFloat(document.getElementById('i-size').value) || 50;
+            const soil = document.getElementById('i-soil').value;
+            const source = document.getElementById('i-source').value;
+            
+            let req = size * 900;
+            let freq = 'Every 3 Days';
+            let tip = 'Utilize mulching to reduce surface evaporation.';
+            
+            if (soil.includes('Sandy')) {
+                req *= 1.2;
+                freq = 'Every 2 Days (Split doses)';
+                tip = 'Consider shifting to drip irrigation due to high percolation.';
+            } else if (soil.includes('Clay')) {
+                req *= 0.8;
+                freq = 'Every 5 Days';
+                tip = 'Ensure proper drainage to prevent root rot.';
+            }
+            
+            if (source === 'Drip System') {
+                req *= 0.6; 
+                freq = 'Daily (Micro-dosing)';
+            }
+            
+            
+            
+            
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/services.js') }}"></script>
+</body>
+</html>
