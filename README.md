@@ -79,6 +79,3 @@ http://127.0.0.1:5000
 | Farm Reports | `/farm-reports` |
 | Analytics | `/analytics` |
 
-## Notes
-
-Built as a university project (OST practicals).
