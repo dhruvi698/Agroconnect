@@ -46,6 +46,17 @@
             <p>Access your historical field performance data and export official reports for agronomy extensions.</p>
         </div>
 
+        <div style="max-width: 1200px; margin: 0 auto 2rem auto; display: flex; justify-content: flex-end; padding: 0 2rem;" id="filter-container">
+            <select id="report-filter" style="max-width: 250px; padding: 0.5rem; border-radius: var(--radius); border: 1px solid var(--color-border); background-color: #fff;">
+                <option value="All">All</option>
+                <option value="Field & Soil Metrics">Field & Soil Metrics</option>
+                <option value="Soil Health">Soil Health</option>
+                <option value="Crop Recommendation">Crop Recommendation</option>
+                <option value="Yield Prediction">Yield Prediction</option>
+                <option value="Irrigation Plan">Irrigation Plan</option>
+            </select>
+        </div>
+
         <div style="max-width: 1200px; margin: 0 auto 3rem auto; display: flex; justify-content: center;">
             <div class="input-card" style="text-align: center; padding: 4rem 2rem; width: 100%; max-width: 600px; border: 2px dashed var(--color-border); background-color: var(--color-surface); box-shadow: none;">
                 <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">📁</div>
@@ -55,8 +66,8 @@
         </div>
 
         <div style="max-width: 600px; margin: 0 auto 3rem auto; display: none; gap: 1rem; justify-content: center;">
-            <button class="btn" onclick="alert('Export Report module is coming soon!')">Export Excel Report</button>
-            <button class="btn" style="background-color: #34495e; border-color: #34495e;" onclick="alert('PDF Generator is coming soon!')">Download PDF</button>
+            <a href="/api/reports/export/excel" class="btn">Export Excel Report</a>
+            <a href="/api/reports/export/pdf" class="btn" style="background-color: #34495e; border-color: #34495e;">Download PDF</a>
         </div>
 
 

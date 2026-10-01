@@ -7,7 +7,12 @@ A farmer portal built with Flask and PostgreSQL. Farmers can register, log in, r
 - Register and log in (passwords are hashed)
 - Dashboard with your farm profile
 - Tools: soil health, crop recommendation, yield prediction, irrigation, weather
-- Farm reports: every analysis you run is saved and can be viewed later
+- Farm reports: every analysis you run is saved and can be viewed later. Export available in Excel and PDF formats.
+- Real-time weather data and 5-day forecast powered by Open-Meteo, with dynamic geocoded location labels and emoji-based forecast icons.
+- Smart forms: Auto-fill inputs from your user profile and live weather data.
+- Profile Management: In-app "Edit Profile" modal with automatic location-cache invalidation.
+- Report Management: Filter reports by analysis type and seamlessly delete outdated reports.
+- REST API Validation: Strict backend checks and centralized JSON error handling.
 - Analytics page with 4 interactive charts (Plotly)
 
 ## Tech Stack
@@ -79,3 +84,14 @@ http://127.0.0.1:5000
 | Farm Reports | `/farm-reports` |
 | Analytics | `/analytics` |
 
+## Database Migrations
+
+If you are updating from an earlier version, you may need to add the `latitude` and `longitude` columns manually since `db.create_all()` does not alter existing tables. Run this in your PostgreSQL database:
+
+```sql
+ALTER TABLE users ADD COLUMN latitude FLOAT, ADD COLUMN longitude FLOAT;
+```
+
+## Notes
+
+Built as a university project (OST practicals).

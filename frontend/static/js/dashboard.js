@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('edit-farmer-name').value = currentUser.name;
             document.getElementById('edit-farm-name').value = currentUser.farm;
             document.getElementById('edit-village').value = currentUser.village;
+            const editDist = document.getElementById('edit-district');
+            if(editDist) editDist.value = currentUser.district || '';
             document.getElementById('edit-size').value = currentUser.size;
             
             const editCrop = document.getElementById('edit-crop');
@@ -95,6 +97,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 name: document.getElementById('edit-farmer-name').value,
                 farm: document.getElementById('edit-farm-name').value,
                 village: document.getElementById('edit-village').value,
+                district: document.getElementById('edit-district') ? document.getElementById('edit-district').value : '',
                 size: document.getElementById('edit-size').value,
                 crop: finalCrop
             };
@@ -110,12 +113,25 @@ document.addEventListener('DOMContentLoaded', async function() {
                     currentUser.name = payload.name;
                     currentUser.farm = payload.farm;
                     currentUser.village = payload.village;
+                    currentUser.district = payload.district;
                     currentUser.size = payload.size;
                     currentUser.crop = payload.crop;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     populateData();
                     editModal.style.display = 'none';
+                    
+                    const successModal = document.getElementById('success-modal');
+                    const successModalTitle = document.getElementById('success-modal-title');
+                    const successModalBody = document.getElementById('success-modal-body');
+                    if(successModal && successModalTitle && successModalBody) {
+                        successModalTitle.innerHTML = '<span class="modal-header-icon">✅</span> Profile Updated';
+                        successModalBody.innerHTML = '<p>Your profile information has been saved successfully.</p>';
+                        successModal.classList.add('active');
+                    } else {
+                        alert('Profile updated successfully');
+                    }
                 } else {
-                    alert('Update failed');
+                    alert('Update failed: ' + (result.message || result.error || 'Unknown error'));
                 }
             } catch(err) { console.error(err); }
         });

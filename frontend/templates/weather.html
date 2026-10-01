@@ -48,7 +48,7 @@
 
         <div style="max-width: 1000px; margin: 0 auto 3rem auto; background: #fff; padding: 2.5rem; border-radius: var(--radius); box-shadow: var(--shadow-md); border: 1px solid var(--color-border);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h3 style="color: var(--color-primary-dark); display: flex; align-items: center; gap: 0.5rem;"><span class="icon">📍</span> Farm Location: Sector 4</h3>
+                <h3 style="color: var(--color-primary-dark); display: flex; align-items: center; gap: 0.5rem;"><span class="icon">📍</span> Farm Location: <span id="weather-banner-village">Loading...</span></h3>
                 <button id="refresh-weather" class="btn" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Refresh Data 🔄</button>
             </div>
             
@@ -86,7 +86,12 @@
             </div>
             
             <div id="w-alert" style="background: #fff3cd; color: #856404; padding: 1rem; border-left: 4px solid #ffeeba; border-radius: var(--radius);">
-                <strong>Weather Alert:</strong> Optimal conditions for harvesting. No severe weather expected in the next 48 hours.
+                <strong>Weather Alert:</strong> Loading weather data...
+            </div>
+            
+            <h4 style="margin-top: 2rem; color: var(--color-primary-dark);">5-Day Forecast</h4>
+            <div id="forecast-container" style="display: flex; justify-content: space-between; overflow-x: auto; margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 1rem;">
+                <!-- 5-day forecast will be populated here -->
             </div>
         </div>
 
@@ -103,17 +108,22 @@
     </footer>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
-        document.getElementById('refresh-weather').addEventListener('click', function() {
-            const btn = this;
-            btn.textContent = 'Updating...';
-            btn.disabled = true;
+        const refreshBtn = document.getElementById('refresh-weather');
+        async function updateWeather() {
+            refreshBtn.textContent = 'Updating...';
+            refreshBtn.disabled = true;
             
-            setTimeout(() => {
-                const temp = Math.floor(Math.random() * 15) + 20; // 20 to 35
-                const hum = Math.floor(Math.random() * 40) + 40; // 40 to 80
-                const wind = Math.floor(Math.random() * 20) + 5; // 5 to 25
-                const rain = Math.floor(Math.random() * 100);
-                const uv = Math.floor(Math.random() * 10) + 1;
+            const data = await getWeatherData(true);
+            
+            if (data && data.success) {
+                const current = data.data.current;
+                const daily = data.data.daily;
+                
+                const temp = current.temperature_2m;
+                const hum = current.relative_humidity_2m;
+                const wind = current.wind_speed_10m;
+                const rain = daily.precipitation_probability_max[0] || 0;
+                const uv = current.uv_index;
                 
                 document.getElementById('w-temp').textContent = temp + '°C';
                 document.getElementById('w-hum').textContent = hum + '%';
@@ -133,11 +143,16 @@
                     alertEl.style.color = '#721c24';
                     alertEl.style.borderLeftColor = '#f5c6cb';
                     alertEl.innerHTML = '<strong>Weather Alert:</strong> High probability of heavy rain. Delay pesticide application.';
-                } else if (temp > 32) {
+                } else if (temp > 35) {
                     alertEl.style.background = '#fff3cd';
                     alertEl.style.color = '#856404';
                     alertEl.style.borderLeftColor = '#ffeeba';
                     alertEl.innerHTML = '<strong>Weather Alert:</strong> High temperatures detected. Ensure adequate irrigation.';
+                } else if (wind > 30) {
+                    alertEl.style.background = '#fff3cd';
+                    alertEl.style.color = '#856404';
+                    alertEl.style.borderLeftColor = '#ffeeba';
+                    alertEl.innerHTML = '<strong>Weather Alert:</strong> High wind speed. Spraying not recommended.';
                 } else {
                     alertEl.style.background = '#d4edda';
                     alertEl.style.color = '#155724';
@@ -145,20 +160,77 @@
                     alertEl.innerHTML = '<strong>Weather Alert:</strong> Conditions are optimal for field operations.';
                 }
                 
-                btn.textContent = 'Refresh Data 🔄';
-                btn.disabled = false;
-            }, 800);
+                const forecastContainer = document.getElementById('forecast-container');
+                if (forecastContainer) {
+                    let fhtml = '';
+                    for(let i=0; i<5; i++) {
+                        const d = new Date(daily.time[i]);
+                        const dayStr = d.toLocaleDateString('en-US', {weekday: 'short'});
+                        const code = daily.weather_code[i];
+                        let emoji = '☀️';
+                        if (code === 0) emoji = '☀️';
+                        else if (code >= 1 && code <= 3) emoji = '⛅';
+                        else if (code >= 45 && code <= 48) emoji = '🌫️';
+                        else if (code >= 51 && code <= 67) emoji = '🌧️';
+                        else if (code >= 71 && code <= 77) emoji = '❄️';
+                        else if (code >= 80 && code <= 82) emoji = '🌦️';
+                        else if (code >= 95 && code <= 99) emoji = '⛈️';
+
+                        fhtml += `<div style="text-align: center; padding: 1rem; min-width: 80px;">
+                            <strong>${dayStr}</strong><br>
+                            <span style="font-size: 1.5rem; display: inline-block; margin: 0.2rem 0;">${emoji}</span><br>
+                            ${daily.temperature_2m_max[i]}° / ${daily.temperature_2m_min[i]}°<br>
+                            💧 ${daily.precipitation_probability_max[i]}%
+                        </div>`;
+                    }
+                    forecastContainer.innerHTML = fhtml;
+                }
+                
+                let locStr = '';
+                const cu = JSON.parse(localStorage.getItem('currentUser'));
+                if (cu && cu.village && cu.district && cu.village !== '-' && cu.district !== '-') {
+                    locStr = cu.village + ', ' + cu.district;
+                } else if (data.place_name) {
+                    locStr = data.place_name;
+                } else if (cu && (cu.village || cu.district)) {
+                    locStr = [cu.village, cu.district].filter(Boolean).join(', ');
+                }
+                
+                if (locStr) {
+                    const el1 = document.getElementById('weather-village');
+                    const el2 = document.getElementById('weather-banner-village');
+                    if (el1) el1.textContent = locStr;
+                    if (el2) el2.textContent = locStr;
+                }
+            } else {
+                const alertEl = document.getElementById('w-alert');
+                alertEl.style.background = '#f8d7da';
+                alertEl.style.color = '#721c24';
+                alertEl.style.borderLeftColor = '#f5c6cb';
+                alertEl.innerHTML = '<strong>Error:</strong> ' + (data && data.error ? data.error : 'Failed to fetch weather');
+            }
+            
+            refreshBtn.textContent = 'Refresh Data 🔄';
+            refreshBtn.disabled = false;
+        }
+
+        refreshBtn.addEventListener('click', updateWeather);
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(updateWeather, 500);
         });
     </script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Initial placeholder text if updateWeather is slow
             const cu = JSON.parse(localStorage.getItem('currentUser'));
             if (cu) {
                 const el1 = document.getElementById('weather-village');
                 const el2 = document.getElementById('weather-banner-village');
-                if (el1) el1.textContent = cu.village + ', ' + cu.district;
-                if (el2) el2.textContent = cu.village + ', ' + cu.district;
+                const locStr = [cu.village, cu.district].filter(x => x && x !== '-').join(', ') || 'Loading...';
+                if (el1) el1.textContent = locStr;
+                if (el2) el2.textContent = locStr;
             }
         });
     </script>

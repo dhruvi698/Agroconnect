@@ -1,9 +1,31 @@
 document.addEventListener('DOMContentLoaded', async function() {
     let currentUser = null;
+    let weatherDataCache = null;
+    let userReports = [];
+    
+    window.getWeatherData = async function(force = false) {
+        if (weatherDataCache && !force) return weatherDataCache;
+        try {
+            const res = await fetch('/api/weather');
+            const data = await res.json();
+            weatherDataCache = data;
+            return data;
+        } catch(e) {
+            console.error("Weather fetch error:", e);
+            return { success: false, error: 'Network error.' };
+        }
+    };
+
     try {
         const res = await fetch('/api/user/profile');
         const data = await res.json();
         if(data.success) { currentUser = data.user; }
+    } catch(e) { console.error(e); }
+    
+    try {
+        const repRes = await fetch('/api/reports');
+        const repData = await repRes.json();
+        if(repData.success) { userReports = repData.reports; }
     } catch(e) { console.error(e); }
 
     function saveAnalysis(type, inputs, results) {
@@ -44,21 +66,40 @@ document.addEventListener('DOMContentLoaded', async function() {
         const cropInput = document.getElementById('y-crop');
         const otherInput = document.getElementById('y-crop-other');
         
-        if (sizeInput) sizeInput.value = currentUser.size;
-        
-        if (cropInput) {
-            const options = Array.from(cropInput.options).map(o => o.value);
-            if (options.includes(currentUser.crop)) {
-                cropInput.value = currentUser.crop;
-            } else {
-                cropInput.value = 'Other';
-                if (otherInput) {
-                    otherInput.style.display = 'block';
-                    otherInput.value = currentUser.crop;
-                    otherInput.setAttribute('required', 'true');
+        if (currentUser) {
+            if (sizeInput) sizeInput.value = currentUser.size;
+            
+            if (cropInput) {
+                const options = Array.from(cropInput.options).map(o => o.value);
+                if (options.includes(currentUser.crop)) {
+                    cropInput.value = currentUser.crop;
+                } else {
+                    cropInput.value = 'Other';
+                    if (otherInput) {
+                        otherInput.style.display = 'block';
+                        otherInput.value = currentUser.crop;
+                        otherInput.setAttribute('required', 'true');
+                    }
                 }
             }
-            
+        }
+        
+        // Auto-fill weather
+        getWeatherData().then(data => {
+            if(data && data.success) {
+                const rainInput = document.getElementById('y-rain');
+                if(rainInput) {
+                    rainInput.value = data.data.daily.precipitation_probability_max[0] || 0;
+                    // Add hint
+                    const hint = document.createElement('small');
+                    hint.style.color = '#7f8c8d';
+                    hint.textContent = ' (Auto-filled from today\'s weather)';
+                    rainInput.parentNode.appendChild(hint);
+                }
+            }
+        });
+        
+        if (cropInput) {
             cropInput.addEventListener('change', function() {
                 if (cropInput.value === 'Other') {
                     if (otherInput) {
@@ -103,6 +144,19 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- PREFILL & LOGIC FOR SOIL HEALTH ---
     const sForm = document.getElementById('soil-form');
     if (sForm) {
+        // Auto-fill from previous reports
+        const lastSoil = userReports.find(r => r.type === 'Soil Health');
+        if (lastSoil && lastSoil.input) {
+            const phInput = document.getElementById('soil-ph');
+            if (phInput && lastSoil.input.ph) {
+                phInput.value = lastSoil.input.ph;
+                const hint = document.createElement('small');
+                hint.style.color = '#7f8c8d';
+                hint.textContent = ' (Auto-filled from previous report)';
+                phInput.parentNode.appendChild(hint);
+            }
+        }
+        
         sForm.addEventListener('submit', function(e) {
             e.preventDefault();
             const ph = parseFloat(document.getElementById('soil-ph').value) || 6.5;
@@ -149,7 +203,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     const iForm = document.getElementById('irrigation-form');
     if (iForm) {
         const sizeInput = document.getElementById('i-size');
-        if (sizeInput) sizeInput.value = currentUser.size;
+        if (currentUser && sizeInput) {
+            sizeInput.value = currentUser.size;
+            const hint = document.createElement('small');
+            hint.style.color = '#7f8c8d';
+            hint.textContent = ' (Auto-filled from your profile)';
+            sizeInput.parentNode.appendChild(hint);
+        }
 
         iForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -204,6 +264,38 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- PREFILL & LOGIC FOR CROP REC ---
     const cForm = document.getElementById('crop-form');
     if (cForm) {
+        const seasonEl = document.getElementById('c-season');
+        const tempEl = document.getElementById('c-temp');
+        const humEl = document.getElementById('c-hum');
+        const rainEl = document.getElementById('c-rain');
+        
+        // Season from month
+        if (seasonEl) {
+            const m = new Date().getMonth() + 1; // 1-12
+            if (m >= 6 && m <= 10) seasonEl.value = 'Kharif (Monsoon)';
+            else if (m >= 11 || m <= 3) seasonEl.value = 'Rabi (Winter)';
+            else seasonEl.value = 'Zaid (Summer)';
+        }
+        
+        // Weather
+        getWeatherData().then(data => {
+            if(data && data.success) {
+                if(tempEl) {
+                    tempEl.value = data.data.current.temperature_2m;
+                    const hint = document.createElement('small');
+                    hint.style.color = '#7f8c8d';
+                    hint.textContent = ' (Auto-filled from today\'s weather)';
+                    tempEl.parentNode.appendChild(hint);
+                }
+                if(humEl) {
+                    humEl.value = data.data.current.relative_humidity_2m;
+                }
+                if(rainEl) {
+                    rainEl.value = data.data.daily.precipitation_probability_max[0] || 0;
+                }
+            }
+        });
+        
         cForm.addEventListener('submit', function(e) {
             e.preventDefault();
             document.getElementById('crop-placeholder').style.display = 'none';

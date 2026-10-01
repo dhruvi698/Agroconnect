@@ -3,6 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 from flask_bcrypt import Bcrypt
 import os
+import io
+import requests
+import openpyxl
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from flask import send_file
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -34,9 +41,14 @@ def create_app():
     
     login_manager.login_view = 'login_page'
 
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        app.logger.exception("Unhandled Exception:")
+        return jsonify({'success': False, 'error': str(e), 'message': 'Internal Server Error'}), 500
+
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
         
     # --- TEMPLATE ROUTES ---
     @app.route('/')
@@ -161,14 +173,29 @@ def create_app():
     @login_required
     def update_profile():
         data = request.get_json()
-        current_user.farmer_name = data.get('name', current_user.farmer_name)
-        current_user.farm_name = data.get('farm', current_user.farm_name)
-        current_user.village = data.get('village', current_user.village)
+        name = str(data.get('name', '')).strip()[:100]
+        farm = str(data.get('farm', '')).strip()[:100]
+        village = str(data.get('village', '')).strip()[:100]
+        district = str(data.get('district', '')).strip()[:100]
+        crop = str(data.get('crop', '')).strip()[:100]
+
         try:
-            current_user.farm_size = float(data.get('size'))
+            size = float(data.get('size', 0))
+            if size <= 0:
+                return jsonify({'success': False, 'message': 'Farm size must be greater than 0'}), 400
         except (ValueError, TypeError):
-            pass
-        current_user.primary_crop = data.get('crop', current_user.primary_crop)
+            return jsonify({'success': False, 'message': 'Invalid farm size'}), 400
+
+        if village != current_user.village or district != current_user.district:
+            current_user.latitude = None
+            current_user.longitude = None
+
+        if name: current_user.farmer_name = name
+        if farm: current_user.farm_name = farm
+        if village: current_user.village = village
+        if district: current_user.district = district
+        current_user.farm_size = size
+        if crop: current_user.primary_crop = crop
         
         db.session.commit()
         return jsonify({'success': True, 'message': 'Profile updated successfully'})
@@ -180,6 +207,10 @@ def create_app():
         analysis_type = data.get('type')
         results = data.get('results')
         inputs = data.get('inputs', {})
+        
+        allowed_types = ['Field & Soil Metrics', 'Yield Prediction', 'Soil Health', 'Irrigation Plan', 'Crop Recommendation']
+        if analysis_type not in allowed_types:
+            return jsonify({'success': False, 'message': f'Invalid analysis type. Allowed: {", ".join(allowed_types)}'}), 400
         
         # Server-side validation for 'Field & Soil Metrics'
         if analysis_type == 'Field & Soil Metrics':
@@ -213,12 +244,177 @@ def create_app():
         report_list = []
         for r in reports:
             report_list.append({
+                'id': r.id,
                 'type': r.analysis_type,
                 'date': r.created_at.isoformat() if r.created_at else '',
                 'input': r.result_data.get('input', {}),
                 'output': r.result_data.get('output', {})
             })
         return jsonify({'success': True, 'reports': report_list})
+
+    @app.route('/api/reports/<int:report_id>', methods=['DELETE'])
+    @login_required
+    def delete_report(report_id):
+        report = db.session.get(AnalysisReport, report_id)
+        if not report or report.user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Report not found'}), 404
+        db.session.delete(report)
+        db.session.commit()
+        return jsonify({'success': True})
+
+    @app.route('/api/reports/export/excel', methods=['GET'])
+    @login_required
+    def export_excel():
+        report_type = request.args.get('type')
+        query = AnalysisReport.query.filter_by(user_id=current_user.id)
+        if report_type:
+            query = query.filter_by(analysis_type=report_type)
+        reports = query.order_by(AnalysisReport.created_at.desc()).all()
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Reports"
+        
+        headers = ['Date', 'Type', 'Inputs', 'Results']
+        ws.append(headers)
+        
+        for cell in ws[1]:
+            cell.font = openpyxl.styles.Font(bold=True)
+            
+        def format_dict(d):
+            if not isinstance(d, dict): return str(d)
+            return ", ".join([f"{str(k).replace('_', ' ').title()}: {v}" for k, v in d.items()])
+            
+        for r in reports:
+            dt = r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else ''
+            typ = r.analysis_type
+            inp = format_dict(r.result_data.get('input', {}))
+            out = format_dict(r.result_data.get('output', {}))
+            ws.append([dt, typ, inp, out])
+            
+        for col_cells in ws.columns:
+            length = max(len(str(cell.value)) for cell in col_cells) if col_cells else 0
+            ws.column_dimensions[col_cells[0].column_letter].width = min(length + 2, 100)
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        return send_file(out, as_attachment=True, download_name='reports.xlsx', mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    @app.route('/api/reports/export/pdf', methods=['GET'])
+    @login_required
+    def export_pdf():
+        report_type = request.args.get('type')
+        query = AnalysisReport.query.filter_by(user_id=current_user.id)
+        if report_type:
+            query = query.filter_by(analysis_type=report_type)
+        reports = query.order_by(AnalysisReport.created_at.desc()).all()
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        elements = []
+        
+        elements.append(Paragraph("Farm Analysis Reports", styles['Title']))
+        elements.append(Paragraph(f"Farmer: {current_user.farmer_name or 'N/A'}", styles['Normal']))
+        elements.append(Paragraph(f"Farm Name: {current_user.farm_name or 'N/A'}", styles['Normal']))
+        from datetime import datetime
+        elements.append(Paragraph(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC", styles['Normal']))
+        elements.append(Spacer(1, 12))
+        
+        def format_dict(d):
+            if not isinstance(d, dict): return str(d)
+            return ", ".join([f"{str(k).replace('_', ' ').title()}: {v}" for k, v in d.items()])
+
+        for r in reports:
+            dt = r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else ''
+            elements.append(Paragraph(f"<b>Type:</b> {r.analysis_type}", styles['Heading3']))
+            elements.append(Paragraph(f"<b>Date:</b> {dt}", styles['Normal']))
+            inp = format_dict(r.result_data.get('input', {}))
+            out = format_dict(r.result_data.get('output', {}))
+            elements.append(Paragraph(f"<b>Inputs:</b> {inp}", styles['Normal']))
+            elements.append(Paragraph(f"<b>Results:</b> {out}", styles['Normal']))
+            elements.append(Spacer(1, 12))
+            
+        doc.build(elements)
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name='reports.pdf', mimetype='application/pdf')
+
+    @app.route('/api/weather', methods=['GET'])
+    @login_required
+    def get_weather():
+        try:
+            lat = request.args.get('lat')
+            lon = request.args.get('lon')
+            place_name = None
+            
+            if lat and lon:
+                try:
+                    lat = float(lat)
+                    lon = float(lon)
+                except:
+                    pass
+            else:
+                if getattr(current_user, 'latitude', None) is None or getattr(current_user, 'longitude', None) is None:
+                    # Geocode
+                    village = current_user.village or ''
+                    district = current_user.district or ''
+                    
+                    geocoded_lat, geocoded_lon = None, None
+                    
+                    queries = []
+                    if village and district:
+                        queries.append(f"{village}, {district}")
+                    if village:
+                        queries.append(village)
+                    if district:
+                        queries.append(district)
+                        
+                    for query_str in queries:
+                        try:
+                            resp = requests.get('https://geocoding-api.open-meteo.com/v1/search', params={'name': query_str, 'count': 1}, timeout=5)
+                            if resp.status_code == 200:
+                                res_data = resp.json()
+                                if res_data.get('results'):
+                                    result = res_data['results'][0]
+                                    geocoded_lat = result['latitude']
+                                    geocoded_lon = result['longitude']
+                                    place_name = f"{result.get('name', '')}, {result.get('admin1', '')}".strip(', ')
+                                    break
+                        except Exception as e:
+                            app.logger.error(f"Geocoding exception for query '{query_str}': {e}", exc_info=True)
+                    
+                    if geocoded_lat is not None and geocoded_lon is not None:
+                        current_user.latitude = geocoded_lat
+                        current_user.longitude = geocoded_lon
+                        db.session.commit()
+                        lat, lon = geocoded_lat, geocoded_lon
+                    else:
+                        return jsonify({'success': False, 'error': 'Location not found, please update your village/district in your profile'}), 404
+                else:
+                    lat = current_user.latitude
+                    lon = current_user.longitude
+
+            weather_url = "https://api.open-meteo.com/v1/forecast"
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,uv_index,weather_code",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "timezone": "auto"
+            }
+            resp = requests.get(weather_url, params=params, timeout=5)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                if place_name:
+                    res_json['place_name'] = place_name
+                return jsonify({'success': True, 'data': res_json})
+            else:
+                app.logger.error(f"Open-Meteo returned {resp.status_code}: {resp.text}")
+                return jsonify({'success': False, 'error': f"Weather API error: {resp.status_code}"}), 500
+        except Exception as e:
+            app.logger.exception("Exception in /api/weather:")
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/analytics/summary', methods=['GET'])
     @login_required

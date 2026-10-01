@@ -16,6 +16,8 @@ class User(UserMixin, db.Model):
     farm_name = db.Column(db.String(100), nullable=True)
     farm_size = db.Column(db.Float, nullable=True)
     primary_crop = db.Column(db.String(100), nullable=True)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
     
     reports = db.relationship('AnalysisReport', backref='farmer', lazy=True)
 
